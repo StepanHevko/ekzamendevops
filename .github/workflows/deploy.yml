@@ -71,7 +71,7 @@ jobs:
             kubectl apply -f /root/task3/k8s/dev.yaml
             kubectl apply -f /root/task3/k8s/release.yaml
             
-            # Port-forward для доступу через зовнішні порти 8002 та 8003
+            # Port-forward (з використанням & disown, щоб процес не прив'язувався до SSH сесії)
             pkill -f "port-forward" || true
-            nohup kubectl port-forward --address 0.0.0.0 svc/app-service 8002:80 -n dev > /dev/null 2>&1 &
-            nohup kubectl port-forward --address 0.0.0.0 svc/app-service 8003:80 -n release > /dev/null 2>&1 &
+            nohup kubectl port-forward --address 0.0.0.0 svc/app-service 8002:80 -n dev > /dev/null 2>&1 & disown
+            nohup kubectl port-forward --address 0.0.0.0 svc/app-service 8003:80 -n release > /dev/null 2>&1 & disown
