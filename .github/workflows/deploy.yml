@@ -46,7 +46,6 @@ jobs:
       - name: Checkout Your Repo
         uses: actions/checkout@v3
 
-      # НОВИЙ КРОК: Копіюємо папку task3 на сервер
       - name: Copy files to Droplet
         uses: appleboy/scp-action@master
         with:
@@ -64,7 +63,7 @@ jobs:
           username: root
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            # Оновлюємо маніфести (тепер вони точно є на сервері в /root/task3/k8s/)
+            # Оновлюємо маніфести
             sed -i "s|DOCKER_IMAGE_PLACEHOLDER|${{ secrets.DOCKER_USERNAME }}/devops-app:develop|g" /root/task3/k8s/dev.yaml
             sed -i "s|DOCKER_IMAGE_PLACEHOLDER|${{ secrets.DOCKER_USERNAME }}/devops-app:1.0.0|g" /root/task3/k8s/release.yaml
             
@@ -72,7 +71,7 @@ jobs:
             kubectl apply -f /root/task3/k8s/dev.yaml
             kubectl apply -f /root/task3/k8s/release.yaml
             
-            # Port-forward для доступу (вбиваємо старі процеси, якщо є)
+            # Port-forward для доступу через зовнішні порти 8002 та 8003
             pkill -f "port-forward" || true
             nohup kubectl port-forward --address 0.0.0.0 svc/app-service 8002:80 -n dev > /dev/null 2>&1 &
             nohup kubectl port-forward --address 0.0.0.0 svc/app-service 8003:80 -n release > /dev/null 2>&1 &
