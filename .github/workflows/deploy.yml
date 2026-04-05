@@ -1,0 +1,67 @@
+name: "Task 3: Build and Deploy"
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'task3/**'
+  workflow_dispatch:
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Your Repo
+        uses: actions/checkout@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Clone App Repo (develop)
+        run: git clone -b develop https://github.com/YulianSalo/devops-exam-pt2.git app-dev
+
+      - name: Build & Push Dev Image
+        run: |
+          docker build -t ${{ secrets.DOCKER_USERNAME }}/devops-app:develop ./app-dev
+          docker push ${{ secrets.DOCKER_USERNAME }}/devops-app:develop
+
+      - name: Clone App Repo (tag 1.0.0)
+        run: |
+          git clone https://github.com/YulianSalo/devops-exam-pt2.git app-release
+          cd app-release && git checkout 1.0.0
+
+      - name: Build & Push Release Image
+        run: |
+          docker build -t ${{ secrets.DOCKER_USERNAME }}/devops-app:1.0.0 ./app-release
+          docker push ${{ secrets.DOCKER_USERNAME }}/devops-app:1.0.0
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Your Repo
+        uses: actions/checkout@v3
+
+      - name: Deploy to Minikube via SSH
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.DROPLET_IP }}
+          username: root
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            # Оновлюємо маніфести з правильними назвами образів
+            sed -i "s|DOCKER_IMAGE_PLACEHOLDER|${{ secrets.DOCKER_USERNAME }}/devops-app:develop|g" task3/k8s/dev.yaml
+            sed -i "s|DOCKER_IMAGE_PLACEHOLDER|${{ secrets.DOCKER_USERNAME }}/devops-app:1.0.0|g" task3/k8s/release.yaml
+            
+            # Розгортання
+            kubectl apply -f task3/k8s/dev.yaml
+            kubectl apply -f task3/k8s/release.yaml
+            
+            # Port-forward для доступу (вбиваємо старі процеси, якщо є)
+            pkill -f "port-forward" || true
+            nohup kubectl port-forward --address 0.0.0.0 svc/app-service 8002:80 -n dev > /dev/null 2>&1 &
+            nohup kubectl port-forward --address 0.0.0.0 svc/app-service 8003:80 -n release > /dev/null 2>&1 &
