@@ -46,6 +46,17 @@ jobs:
       - name: Checkout Your Repo
         uses: actions/checkout@v3
 
+      # НОВИЙ КРОК: Копіюємо папку task3 на сервер
+      - name: Copy files to Droplet
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.DROPLET_IP }}
+          username: root
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: "task3/k8s/*.yaml"
+          target: "/root/task3/k8s/"
+          strip_components: 2
+
       - name: Deploy to Minikube via SSH
         uses: appleboy/ssh-action@master
         with:
@@ -53,13 +64,13 @@ jobs:
           username: root
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            # Оновлюємо маніфести з правильними назвами образів
-            sed -i "s|DOCKER_IMAGE_PLACEHOLDER|${{ secrets.DOCKER_USERNAME }}/devops-app:develop|g" task3/k8s/dev.yaml
-            sed -i "s|DOCKER_IMAGE_PLACEHOLDER|${{ secrets.DOCKER_USERNAME }}/devops-app:1.0.0|g" task3/k8s/release.yaml
+            # Оновлюємо маніфести (тепер вони точно є на сервері в /root/task3/k8s/)
+            sed -i "s|DOCKER_IMAGE_PLACEHOLDER|${{ secrets.DOCKER_USERNAME }}/devops-app:develop|g" /root/task3/k8s/dev.yaml
+            sed -i "s|DOCKER_IMAGE_PLACEHOLDER|${{ secrets.DOCKER_USERNAME }}/devops-app:1.0.0|g" /root/task3/k8s/release.yaml
             
             # Розгортання
-            kubectl apply -f task3/k8s/dev.yaml
-            kubectl apply -f task3/k8s/release.yaml
+            kubectl apply -f /root/task3/k8s/dev.yaml
+            kubectl apply -f /root/task3/k8s/release.yaml
             
             # Port-forward для доступу (вбиваємо старі процеси, якщо є)
             pkill -f "port-forward" || true
