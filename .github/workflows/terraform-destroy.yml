@@ -1,0 +1,24 @@
+name: "Destroy Terraform"
+
+on:
+  workflow_dispatch:
+
+jobs:
+  destroy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./task1
+
+    env:
+      TF_VAR_do_token: ${{ secrets.DO_PAT }}
+      TF_VAR_spaces_access_id: ${{ secrets.SPACES_ACCESS_KEY_ID }}
+      TF_VAR_spaces_secret_key: ${{ secrets.SPACES_SECRET_ACCESS_KEY }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.SPACES_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.SPACES_SECRET_ACCESS_KEY }}
+
+    steps:
+      - uses: actions/checkout@v3
+      - uses: hashicorp/setup-terraform@v2
+      - run: terraform init -backend-config="bucket=shevko-tfstate"
+      - run: terraform destroy -auto-approve
