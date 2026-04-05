@@ -1,0 +1,62 @@
+- name: Install DevOps Tools
+  hosts: all
+  become: yes
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+
+    - name: Install dependencies
+      apt:
+        name: ['curl', 'apt-transport-https', 'conntrack', 'docker.io']
+        state: present
+
+    - name: Download Minikube
+      get_url:
+        url: https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
+        dest: /usr/local/bin/minikube
+        mode: '0755'
+
+    - name: Download Kubectl
+      get_url:
+        url: https://dl.k8s.io/release/v1.30.0/bin/linux/amd64/kubectl
+        dest: /usr/local/bin/kubectl
+        mode: '0755'
+
+    - name: Install Helm
+      shell: |
+        curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
+        chmod 700 get_helm.sh
+        ./get_helm.sh
+      args:
+        creates: /usr/local/bin/helm
+
+    - name: Check Minikube status
+      command: minikube status
+      register: minikube_status
+      ignore_errors: yes
+
+    - name: Start Minikube
+      command: minikube start --driver=docker --force
+      when: minikube_status.rc != 0
+
+    - name: Configure kubectl proxy service
+      copy:
+        dest: /etc/systemd/system/kubectl-proxy.service
+        content: |
+          [Unit]
+          Description=Kubectl Proxy
+
+          [Service]
+          ExecStart=/usr/local/bin/kubectl proxy --address='0.0.0.0' --port=8001 --accept-hosts='^.*$'
+          Restart=always
+          User=root
+
+          [Install]
+          WantedBy=multi-user.target
+
+    - name: Enable and start kubectl proxy
+      systemd:
+        name: kubectl-proxy
+        enabled: yes
+        state: restarted
